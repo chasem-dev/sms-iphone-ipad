@@ -9,6 +9,8 @@
   <key>CFBundleName</key><string>Sunshine Game</string>
   <key>CFBundleDisplayName</key><string>Sunshine Game</string>
   <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleSupportedPlatforms</key><array><string>${SMS_IOS_SUPPORTED_PLATFORM}</string></array>
+  <key>MinimumOSVersion</key><string>${CMAKE_OSX_DEPLOYMENT_TARGET}</string>
   <key>CFBundleShortVersionString</key><string>0.1.0</string>
   <key>CFBundleVersion</key><string>1</string>
   <key>LSRequiresIPhoneOS</key><true/>

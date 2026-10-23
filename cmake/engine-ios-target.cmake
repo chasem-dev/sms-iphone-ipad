@@ -8,6 +8,14 @@ get_target_property(_sms_sources sms SOURCES)
 list(REMOVE_ITEM _sms_sources "${SMS_PORT_SRC}/port_main.cpp")
 set_property(TARGET sms PROPERTY SOURCES "${_sms_sources}")
 target_sources(sms PRIVATE "${SMS_IOS_GAME_MAIN}")
+get_filename_component(_sms_ios_directory "${SMS_IOS_GAME_MAIN}" DIRECTORY)
+target_sources(sms PRIVATE "${_sms_ios_directory}/GameLauncher.mm" "${_sms_ios_directory}/../native/DiscImage.cpp")
+set_source_files_properties("${_sms_ios_directory}/GameLauncher.mm" PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
+target_sources(sms PRIVATE "${_sms_ios_directory}/GameCubeControls.mm")
+set_source_files_properties("${_sms_ios_directory}/GameCubeControls.mm" PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
+file(GLOB _sms_control_images CONFIGURE_DEPENDS "${_sms_ios_directory}/Controls/*.png")
+set_source_files_properties(${_sms_control_images} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources/Controls")
+target_sources(sms PRIVATE ${_sms_control_images})
 set_source_files_properties("${SMS_IOS_GAME_MAIN}" PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
 target_include_directories(sms PRIVATE "${CMAKE_SOURCE_DIR}")
 target_compile_definitions(sms PRIVATE SMS_IOS=1)
@@ -39,7 +47,12 @@ target_compile_options(sms_gx PRIVATE -include "${_sms_volk_namespace}")
 target_link_options(sms PRIVATE "LINKER:-export_dynamic")
 target_link_libraries(sms PRIVATE SDL2::SDL2 "${SMS_IOS_MOLTENVK}"
   "-framework Metal" "-framework QuartzCore" "-framework IOSurface"
-  "-framework IOKit" "-framework Foundation" "-framework UIKit")
+  "-framework IOKit" "-framework Foundation" "-framework UIKit" "-framework UniformTypeIdentifiers")
+if(CMAKE_OSX_SYSROOT MATCHES "[Ss]imulator")
+  set(SMS_IOS_SUPPORTED_PLATFORM "iPhoneSimulator")
+else()
+  set(SMS_IOS_SUPPORTED_PLATFORM "iPhoneOS")
+endif()
 set_target_properties(sms PROPERTIES MACOSX_BUNDLE TRUE OUTPUT_NAME SunshineGame
   MACOSX_BUNDLE_INFO_PLIST "${SMS_IOS_INFO_PLIST}"
   MACOSX_BUNDLE_GUI_IDENTIFIER "dev.chasem.sunshine.game"

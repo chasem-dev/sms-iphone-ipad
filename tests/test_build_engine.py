@@ -1,5 +1,6 @@
 import argparse
 import importlib.util
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -107,6 +108,67 @@ class EngineBuildTests(unittest.TestCase):
         self.assertIn("--target=arm64-apple-macos", command)
         self.assertEqual(command[command.index("-isysroot") + 1], "/mac-sdk")
         self.assertNotIn("--target=arm64-apple-ios15.0-simulator", command)
+
+    def test_device_compilers_have_explicit_target(self):
+        args = MODULE.parse_args(["--platform", "device"])
+        command = list(map(str, MODULE.configure_command(args, self.cache, "/sdl", "/host/plugin.dylib", "/device-sdk")))
+        for language in ("C", "CXX", "OBJC", "OBJCXX"):
+            self.assertIn(f"-DCMAKE_{language}_COMPILER_TARGET=arm64-apple-ios15.0", command)
+        self.assertIn("-DCMAKE_OSX_SYSROOT=/device-sdk", command)
+        self.assertIn("-DCMAKE_OSX_ARCHITECTURES=arm64", command)
+        self.assertIn("-DCMAKE_OSX_DEPLOYMENT_TARGET=15.0", command)
+        self.assertFalse(any("-simulator" in argument for argument in command))
+
+    def test_device_plugin_matches_device_runtime_address_window(self):
+        plugin_source = self.reference / "tools/gameptr/GamePtrPass.cpp"
+        plugin_source.parent.mkdir(parents=True)
+        plugin_source.write_text("fixture")
+        def fake_run(*command, **kwargs):
+            if command[0] == "xcrun":
+                return "/mac-sdk"
+            if command[-1] == "--cxxflags":
+                return "-I/llvm/include -std=c++17"
+            return "clang fixture"
+        for platform in ("device", "simulator"):
+            with self.subTest(platform=platform), patch.object(MODULE, "run", side_effect=fake_run) as runner:
+                MODULE.build_host_plugin(Path("/llvm/bin"), self.reference, self.root / platform, platform)
+                command = next(call.args for call in runner.call_args_list if "-shared" in call.args)
+                self.assertEqual("-DSMS_IOS_DEVICE=1" in command, platform == "device")
+
+    def test_platform_defaults(self):
+        with patch.dict(os.environ, {}, clear=True):
+            simulator = MODULE.parse_args([])
+            device = MODULE.parse_args(["--platform", "device"])
+        self.assertEqual(simulator.platform, "simulator")
+        self.assertEqual(simulator.build_dir, MODULE.ROOT / "build/engine-simulator")
+        self.assertEqual(simulator.moltenvk, MODULE.DEFAULT_MOLTENVK.resolve())
+        self.assertEqual(device.build_dir, MODULE.ROOT / "build/engine-device")
+        self.assertEqual(device.moltenvk, MODULE.DEFAULT_DEVICE_MOLTENVK.resolve())
+
+    def test_platform_defaults_respect_overrides(self):
+        for platform in ("simulator", "device"):
+            with self.subTest(platform=platform), patch.dict(os.environ, {"SMS_IOS_MOLTENVK": "/env/libMoltenVK.a"}):
+                args = MODULE.parse_args(["--platform", platform])
+                self.assertEqual(args.moltenvk, Path("/env/libMoltenVK.a"))
+                args = MODULE.parse_args(["--platform", platform, "--moltenvk", "/explicit/libMoltenVK.a",
+                                          "--build-dir", str(self.root / "custom-build")])
+                self.assertEqual(args.moltenvk, Path("/explicit/libMoltenVK.a"))
+                self.assertEqual(args.build_dir, (self.root / "custom-build").resolve())
+
+    def test_build_uses_platform_sdk_and_full_target(self):
+        for platform, sdk_name in (("simulator", "iphonesimulator"), ("device", "iphoneos")):
+            with self.subTest(platform=platform):
+                archive = self.root / "libMoltenVK.a"
+                archive.touch()
+                args = MODULE.parse_args(["--platform", platform, "--moltenvk", str(archive)])
+                with patch.object(MODULE, "parse_args", return_value=args), \
+                        patch.object(MODULE, "prepare_engine"), \
+                        patch.object(MODULE, "prepare_sdl", return_value=Path("/sdl")), \
+                        patch.object(MODULE, "build_host_plugin", return_value=Path("/host/plugin.dylib")), \
+                        patch.object(MODULE, "run", return_value="/sdk") as runner:
+                    MODULE.main()
+                runner.assert_any_call("xcrun", "--sdk", sdk_name, "--show-sdk-path", capture=True)
+                runner.assert_any_call("cmake", "--build", args.build_dir, "--target", "sms", "--parallel", args.jobs)
 
     def test_sdl_checksum_checked_before_extraction(self):
         downloads = self.root / "downloads"

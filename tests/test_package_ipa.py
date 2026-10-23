@@ -46,6 +46,16 @@ class PackageTests(unittest.TestCase):
             MODULE.package(self.app, self.output)
         self.assertFalse(self.output.exists())
 
+    def test_distribution_rejects_local_only_marker(self):
+        self.info["SMSLocalOnly"] = True
+        self.write_info()
+        with self.assertRaisesRegex(ValueError, "Local-only"):
+            MODULE.package(self.app, self.output)
+
+    def test_local_disc_exception_requires_marker(self):
+        with self.assertRaisesRegex(ValueError, "explicit local-only"):
+            MODULE.package(self.app, self.output, local_bundled_disc=True)
+
     def test_rejects_missing_executable(self):
         (self.app / "Sunshine").unlink()
         with self.assertRaisesRegex(ValueError, "executable"):

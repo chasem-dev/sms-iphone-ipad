@@ -1,0 +1,48 @@
+diff --git a/src/port_include/dolphin/types.h b/src/port_include/dolphin/types.h
+--- a/src/port_include/dolphin/types.h
++++ b/src/port_include/dolphin/types.h
+@@ -80,7 +80,11 @@
+  * other host. */
+ #if defined(__APPLE__) && defined(__aarch64__)
+ #define PORT_GAME_LO 0x100000000ull
++#ifdef SMS_IOS_DEVICE
++#define PORT_GAME_HI 0x7000000000ull
++#else
+ #define PORT_GAME_HI 0x10000000000ull
++#endif
+ #else
+ #define PORT_GAME_LO 0ull
+ #define PORT_GAME_HI 0ull
+diff --git a/tools/gameptr/GamePtrPass.cpp b/tools/gameptr/GamePtrPass.cpp
+--- a/tools/gameptr/GamePtrPass.cpp
++++ b/tools/gameptr/GamePtrPass.cpp
+@@ -60,7 +60,11 @@
+ namespace {
+ 
+ constexpr uint64_t kLo = 0x100000000ull;  // PORT_GAME_LO
++#ifdef SMS_IOS_DEVICE
++constexpr uint64_t kHi = 0x7000000000ull;
++#else
+ constexpr uint64_t kHi = 0x10000000000ull;  // PORT_GAME_HI
++#endif
+ 
+ constexpr uint64_t kMin = 0x10000;  // PORT_GAME_MIN
+ 
+diff --git a/platform/port_runtime.cpp b/platform/port_runtime.cpp
+--- a/platform/port_runtime.cpp
++++ b/platform/port_runtime.cpp
+@@ -598,9 +598,13 @@
+ 	// Native arm64 macOS: the game's code reaches MEM1 at PORT_GAME_HI only
+ 	// (the pass plugin builds the address in), so MEM1 anywhere else cannot work.
+ 	if (p != want) {
+-		port_log("[port] cannot map MEM1 at %p (%u MiB): the address is taken\n", want, mb);
++		port_log("[port] cannot map MEM1 at %p (%u MiB): the required address is unavailable\n", want, mb);
+ 		log_mapping_at((uintptr_t)want, port_mem1_size);
++#ifdef SMS_IOS
++		port_log("[port] iOS game memory reservation failed before engine initialization\n");
++#else
+ 		port_log("[port] the Apple Silicon build cannot start on this Mac: turn off Apple Silicon build in SMS Launcher (Manage game, Files), or build with SMS_ARCH=64\n");
++#endif
+ 		exit(1);
+ 	}
+ #endif

@@ -45,6 +45,7 @@ def main():
         process = subprocess.Popen(["xcodebuild", "-project", str(ROOT / "tests/ui/GameUITests.xcodeproj"),
             "-scheme", "GameUITests", "-destination", f"platform=iOS Simulator,id={args.device}",
             "-derivedDataPath", str(ROOT / "build/ui-tests"), "-resultBundlePath", str(evidence / "touch.xcresult"),
+            "-only-testing:GameUITests/GameUITests/testNativeTouchControls",
             "-parallel-testing-enabled", "NO", "test"], stdout=log, stderr=subprocess.STDOUT)
         deadline = time.monotonic() + 180
         while process.poll() is None and time.monotonic() < deadline:

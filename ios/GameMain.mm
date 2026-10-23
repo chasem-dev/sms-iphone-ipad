@@ -4,6 +4,8 @@
 #include <SDL_syswm.h>
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
+#import "GameLauncher.h"
+#import "GameCubeControls.h"
 #include "port_platform.h"
 #include "port_ext.h"
 #include "port_presence.h"
@@ -19,77 +21,11 @@ extern void SMS_main(void);
 extern float* gpMarioPos;
 static unsigned long touchPresses;
 
-@interface SMSGameControls : UIView
-@end
-
-@implementation SMSGameControls
-- (instancetype)initWithFrame:(CGRect)frame
-{
-    self = [super initWithFrame:frame];
-    if (self) [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(releaseAll)
-        name:UIApplicationWillResignActiveNotification object:nil];
-    return self;
-}
-
-- (void)dealloc
-{
-    [NSNotificationCenter.defaultCenter removeObserver:self];
-}
-
-- (void)releaseAll
-{
-    for (UIView* view in self.subviews) {
-        if ([view isKindOfClass:UIButton.class]) [self sendButton:(UIButton*)view down:NO];
-    }
-}
-
-- (UIView*)hitTest:(CGPoint)point withEvent:(UIEvent*)event
-{
-    UIView* target = [super hitTest:point withEvent:event];
-    return target == self ? nil : target;
-}
-
-- (void)sendButton:(UIButton*)button down:(BOOL)down
-{
-    if (down) ++touchPresses;
-    SDL_Event event = {};
-    event.type = down ? SDL_KEYDOWN : SDL_KEYUP;
-    event.key.state = down ? SDL_PRESSED : SDL_RELEASED;
-    event.key.keysym.scancode = static_cast<SDL_Scancode>(button.tag);
-    event.key.keysym.sym = SDL_GetKeyFromScancode(event.key.keysym.scancode);
-    if (SDL_Window* window = SDL_GetKeyboardFocus()) event.key.windowID = SDL_GetWindowID(window);
-    SDL_PushEvent(&event);
-}
-
-- (void)press:(UIButton*)button { [self sendButton:button down:YES]; }
-- (void)release:(UIButton*)button { [self sendButton:button down:NO]; }
-
-- (void)addButton:(NSString*)title scan:(SDL_Scancode)scan left:(CGFloat)left bottom:(CGFloat)bottom rightSide:(BOOL)rightSide
-{
-    UIButton* button = [UIButton buttonWithType:UIButtonTypeSystem];
-    button.translatesAutoresizingMaskIntoConstraints = NO;
-    button.tag = scan;
-    button.accessibilityLabel = [@"Game " stringByAppendingString:title];
-    [button setTitle:title forState:UIControlStateNormal];
-    [button setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];
-    button.backgroundColor = [UIColor.blackColor colorWithAlphaComponent:0.4];
-    button.layer.cornerRadius = 22;
-    button.exclusiveTouch = NO;
-    [button addTarget:self action:@selector(press:) forControlEvents:UIControlEventTouchDown];
-    [button addTarget:self action:@selector(release:) forControlEvents:UIControlEventTouchUpInside | UIControlEventTouchUpOutside | UIControlEventTouchCancel];
-    [self addSubview:button];
-    NSLayoutConstraint* horizontal = rightSide
-        ? [button.trailingAnchor constraintEqualToAnchor:self.safeAreaLayoutGuide.trailingAnchor constant:-left]
-        : [button.leadingAnchor constraintEqualToAnchor:self.safeAreaLayoutGuide.leadingAnchor constant:left];
-    [NSLayoutConstraint activateConstraints:@[horizontal,
-        [button.bottomAnchor constraintEqualToAnchor:self.safeAreaLayoutGuide.bottomAnchor constant:-bottom],
-        [button.widthAnchor constraintEqualToConstant:44], [button.heightAnchor constraintEqualToConstant:44]]];
-}
-@end
+static void TouchPressed() { ++touchPresses; }
 
 static void InstallControls()
 {
-    static SMSGameControls* controls;
+    static UIView* controls;
     SDL_Window* focusedWindow = SDL_GetKeyboardFocus();
     if (controls || !focusedWindow) return;
     SDL_SysWMinfo info = {};
@@ -97,24 +33,7 @@ static void InstallControls()
     if (!SDL_GetWindowWMInfo(focusedWindow, &info)) return;
     UIWindow* window = info.info.uikit.window;
     if (!window) return;
-    controls = [[SMSGameControls alloc] initWithFrame:window.bounds];
-    controls.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-    [controls addButton:@"↑" scan:SDL_SCANCODE_W left:58 bottom:108 rightSide:NO];
-    [controls addButton:@"↓" scan:SDL_SCANCODE_S left:58 bottom:12 rightSide:NO];
-    [controls addButton:@"←" scan:SDL_SCANCODE_A left:10 bottom:60 rightSide:NO];
-    [controls addButton:@"→" scan:SDL_SCANCODE_D left:106 bottom:60 rightSide:NO];
-    [controls addButton:@"L" scan:SDL_SCANCODE_Q left:10 bottom:166 rightSide:NO];
-    [controls addButton:@"Start" scan:SDL_SCANCODE_RETURN left:68 bottom:166 rightSide:NO];
-    [controls addButton:@"A" scan:SDL_SCANCODE_SPACE left:10 bottom:60 rightSide:YES];
-    [controls addButton:@"B" scan:SDL_SCANCODE_C left:58 bottom:12 rightSide:YES];
-    [controls addButton:@"X" scan:SDL_SCANCODE_V left:58 bottom:108 rightSide:YES];
-    [controls addButton:@"Y" scan:SDL_SCANCODE_F left:106 bottom:60 rightSide:YES];
-    [controls addButton:@"R" scan:SDL_SCANCODE_E left:10 bottom:166 rightSide:YES];
-    [controls addButton:@"Z" scan:SDL_SCANCODE_Z left:68 bottom:166 rightSide:YES];
-    [controls addButton:@"C↑" scan:SDL_SCANCODE_I left:164 bottom:108 rightSide:YES];
-    [controls addButton:@"C↓" scan:SDL_SCANCODE_K left:164 bottom:12 rightSide:YES];
-    [controls addButton:@"C←" scan:SDL_SCANCODE_J left:212 bottom:60 rightSide:YES];
-    [controls addButton:@"C→" scan:SDL_SCANCODE_L left:164 bottom:60 rightSide:YES];
+    controls = SMSCreateGameCubeControls(window.bounds, TouchPressed);
     [window addSubview:controls];
     std::fprintf(stderr, "[ios] touch controls installed\n");
 }
@@ -225,6 +144,7 @@ static void EnterGame(void*)
 static int RunGame(int, char**)
 {
     @autoreleasepool {
+        SMSPresentGameLauncher();
         NSString* documents = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
         NSString* gameDirectory = [documents stringByAppendingPathComponent:@"Game"];
         NSString* saves = [documents stringByAppendingPathComponent:@"Saves"];
@@ -234,7 +154,7 @@ static int RunGame(int, char**)
         std::freopen(log.fileSystemRepresentation, "w", stderr);
         std::freopen([documents stringByAppendingPathComponent:@"presence.log"].fileSystemRepresentation, "w", stdout);
         setvbuf(stderr, nullptr, _IONBF, 0);
-        setenv("SMS_DISC_IMAGE", [gameDirectory stringByAppendingPathComponent:@"disc.gcm"].fileSystemRepresentation, 1);
+        setenv("SMS_DISC_IMAGE", SMSGameDiscURL().fileSystemRepresentation, 1);
         setenv("SMS_SAVE_DIR", saves.fileSystemRepresentation, 1);
         setenv("SMS_GX_BACKEND", "vulkan", 1);
         setenv("SMS_SKIP_INTRO", "1", 0);

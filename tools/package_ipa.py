@@ -3,7 +3,6 @@ import argparse
 import os
 from pathlib import Path
 import plistlib
-import stat
 import subprocess
 import tempfile
 import zipfile
@@ -12,7 +11,7 @@ import zipfile
 FORBIDDEN_SUFFIXES = {".iso", ".gcm", ".ciso", ".rvz", ".wia", ".wbfs", ".dol"}
 
 
-def package(app, output, require_signed=False):
+def package(app, output, require_signed=False, *, local_bundled_disc=False):
     app = Path(app).resolve()
     output = Path(output).resolve()
     if not app.is_dir() or app.suffix != ".app":
@@ -24,9 +23,16 @@ def package(app, output, require_signed=False):
     executable = info.get("CFBundleExecutable", "")
     if not executable or Path(executable).name != executable or not (app / executable).is_file():
         raise ValueError("The app bundle is missing its executable.")
+    if info.get("SMSLocalOnly") and not local_bundled_disc:
+        raise ValueError("Local-only bundles cannot use the distribution packager.")
+    if local_bundled_disc and (info.get("SMSLocalOnly") is not True
+            or info.get("SMSLocalBundledDisc") != "LocalGame/disc.gcm"
+            or not (app / "LocalGame/disc.gcm").is_file()):
+        raise ValueError("Local packaging requires the explicit local-only bundled-disc marker and image.")
     files = sorted(app.rglob("*"))
     for file in files:
-        if file.suffix.lower() in FORBIDDEN_SUFFIXES:
+        allowed_local_disc = local_bundled_disc and file.relative_to(app).as_posix() == "LocalGame/disc.gcm"
+        if file.suffix.lower() in FORBIDDEN_SUFFIXES and not allowed_local_disc:
             raise ValueError(f"Refusing to distribute game assets: {file.relative_to(app)}")
         if file.is_symlink():
             raise ValueError("Symlinks are not supported by this initial IPA packager.")
@@ -48,7 +54,7 @@ def package(app, output, require_signed=False):
                     continue
                 archive_name = Path("Payload") / app.name / file.relative_to(app)
                 archive.write(file, archive_name.as_posix())
-        os.chmod(temporary, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH)
+        os.chmod(temporary, 0o600 if local_bundled_disc else 0o644)
         temporary.replace(output)
     finally:
         if temporary is not None:

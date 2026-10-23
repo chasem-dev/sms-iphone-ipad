@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the pinned engine in an isolated, reproducibly patched simulator cache."""
+"""Build the pinned iOS engine in an isolated, reproducibly patched cache."""
 import argparse
 import hashlib
 import importlib.util
@@ -15,6 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SDL_VERSION = "2.32.10"
 SDL_SHA256 = "5f5993c530f084535c65a6879e9b26ad441169b3e25d789d83287040a9ca5165"
 DEFAULT_MOLTENVK = ROOT / ".cache/MoltenVK.xcframework/ios-arm64_x86_64-simulator/libMoltenVK.a"
+DEFAULT_DEVICE_MOLTENVK = ROOT / ".cache/MoltenVK.xcframework/ios-arm64/libMoltenVK.a"
 
 
 def run(*command, cwd=None, capture=False):
@@ -97,7 +98,7 @@ def prepare_sdl(cache):
     return source
 
 
-def build_host_plugin(llvm, source, build):
+def build_host_plugin(llvm, source, build, platform="simulator"):
     plugin = build / "gameptr" / "libSmsGamePtr.dylib"
     plugin.parent.mkdir(parents=True, exist_ok=True)
     import shlex
@@ -106,6 +107,8 @@ def build_host_plugin(llvm, source, build):
     command = [llvm / "clang++", "--target=arm64-apple-macos", "-isysroot", sdk,
                "-shared", "-fPIC", "-O2", *flags, "-undefined", "dynamic_lookup",
                "-o", plugin, source / "tools/gameptr/GamePtrPass.cpp"]
+    if platform == "device":
+        command.append("-DSMS_IOS_DEVICE=1")
     stamp = plugin.with_suffix(".json")
     identity = digest((json.dumps(list(map(str, command))) +
                        (source / "tools/gameptr/GamePtrPass.cpp").read_text() +
@@ -117,7 +120,9 @@ def build_host_plugin(llvm, source, build):
 
 
 def configure_command(args, source, sdl, plugin, sdk):
-    triple = "arm64-apple-ios15.0-simulator"
+    triple = "arm64-apple-ios15.0"
+    if getattr(args, "platform", "simulator") == "simulator":
+        triple += "-simulator"
     return ["cmake", "-S", source, "-B", args.build_dir, "-G", "Ninja",
             "-DCMAKE_SYSTEM_NAME=iOS", "-DCMAKE_OSX_ARCHITECTURES=arm64",
             f"-DCMAKE_OSX_SYSROOT={sdk}", "-DCMAKE_OSX_DEPLOYMENT_TARGET=15.0",
@@ -135,12 +140,13 @@ def configure_command(args, source, sdl, plugin, sdk):
             f"-DSMS_IOS_INFO_PLIST={args.info_plist}", *args.cmake_arg]
 
 
-def main():
+def parse_args(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--platform", choices=("simulator", "device"), default="simulator")
     parser.add_argument("--reference", type=Path, default=ROOT.parent / "sms-pc-port")
-    parser.add_argument("--build-dir", type=Path, default=ROOT / "build/engine-simulator")
+    parser.add_argument("--build-dir", type=Path, help="Default: build/engine-<platform>")
     parser.add_argument("--llvm-bin", type=Path, default=Path("/opt/homebrew/opt/llvm/bin"))
-    parser.add_argument("--moltenvk", type=Path, default=Path(os.environ.get("SMS_IOS_MOLTENVK", str(DEFAULT_MOLTENVK))))
+    parser.add_argument("--moltenvk", type=Path, help="MoltenVK archive (overrides SMS_IOS_MOLTENVK)")
     parser.add_argument("--game-main", type=Path, default=ROOT / "ios/GameMain.mm")
     parser.add_argument("--info-plist", type=Path, default=ROOT / "ios/GameInfo.plist.in")
     parser.add_argument("--patch", type=Path, action="append", default=[])
@@ -149,13 +155,23 @@ def main():
     parser.add_argument("--jobs", type=int, default=min(os.cpu_count() or 4, 8))
     parser.add_argument("--prepare-only", action="store_true")
     parser.add_argument("--configure-only", action="store_true")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
+    if args.build_dir is None:
+        args.build_dir = ROOT / f"build/engine-{args.platform}"
+    if args.moltenvk is None:
+        default_moltenvk = DEFAULT_DEVICE_MOLTENVK if args.platform == "device" else DEFAULT_MOLTENVK
+        args.moltenvk = Path(os.environ.get("SMS_IOS_MOLTENVK", str(default_moltenvk)))
     args.build_dir = args.build_dir.resolve()
     args.reference = args.reference.resolve()
     args.llvm_bin = args.llvm_bin.resolve()
     args.moltenvk = args.moltenvk.resolve()
     args.game_main = args.game_main.resolve()
     args.info_plist = args.info_plist.resolve()
+    return args
+
+
+def main():
+    args = parse_args()
     patches = sorted((ROOT / "patches").glob("engine-*.patch")) + [path.resolve() for path in args.patch]
     source = ROOT / ".cache/engine"
     lock = json.loads((ROOT / "engine.lock.json").read_text())
@@ -164,9 +180,10 @@ def main():
     if args.prepare_only:
         return
     if not args.moltenvk.is_file():
-        raise SystemExit(f"Simulator MoltenVK archive is missing: {args.moltenvk}")
-    plugin = build_host_plugin(args.llvm_bin, source, args.build_dir)
-    sdk = run("xcrun", "--sdk", "iphonesimulator", "--show-sdk-path", capture=True)
+        raise SystemExit(f"{args.platform.capitalize()} MoltenVK archive is missing: {args.moltenvk}")
+    plugin = build_host_plugin(args.llvm_bin, source, args.build_dir, args.platform)
+    sdk_name = "iphoneos" if args.platform == "device" else "iphonesimulator"
+    sdk = run("xcrun", "--sdk", sdk_name, "--show-sdk-path", capture=True)
     run(*configure_command(args, source, sdl, plugin, sdk))
     if not args.configure_only:
         run("cmake", "--build", args.build_dir, "--target", *(args.target or ["sms"]), "--parallel", args.jobs)

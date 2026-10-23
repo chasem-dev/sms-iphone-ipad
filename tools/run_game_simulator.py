@@ -85,6 +85,7 @@ def main():
     parser.add_argument("--device", required=True, help="Exact simulator UDID")
     parser.add_argument("--seconds", type=float, default=120)
     parser.add_argument("--autopress", default="", help="Existing engine SMS_AUTOPRESS script, e.g. START@120,A@240")
+    parser.add_argument("--launcher", action="store_true", help="Show the launcher instead of automatically starting the game")
     parser.add_argument("--require-gameplay", action="store_true", help="Require error-free logs, playable-stage telemetry, input, and player displacement")
     args = parser.parse_args()
     if args.seconds <= 0:
@@ -109,6 +110,7 @@ def main():
         (documents / name).unlink(missing_ok=True)
     environment = os.environ.copy()
     environment["SIMCTL_CHILD_SMS_AUTOPRESS"] = args.autopress
+    environment["SIMCTL_CHILD_SMS_IOS_AUTOLAUNCH"] = "0" if args.launcher else "1"
     environment["SIMCTL_CHILD_MTL_DEBUG_LAYER"] = "1"
     launched = simctl("launch", "--terminate-running-process", args.device, bundle, environment=environment)
     print(launched, flush=True)
