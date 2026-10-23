@@ -1,0 +1,345 @@
+{
+  "schemaVersion": 1,
+  "system": "Version 18.3.1 (Build 22D8075)",
+  "metalDevice": "Apple iOS simulator GPU",
+  "tests": [
+    {
+      "passed": true,
+      "height": 64,
+      "channelTolerance": 2,
+      "width": 64,
+      "maximumChannelError": 0,
+      "mismatchedPixels": 0,
+      "checkedPixels": 4096,
+      "name": "clear"
+    },
+    {
+      "passed": true,
+      "height": 64,
+      "channelTolerance": 2,
+      "width": 64,
+      "maximumChannelError": 0,
+      "mismatchedPixels": 0,
+      "checkedPixels": 4096,
+      "name": "indexed-geometry"
+    },
+    {
+      "passed": true,
+      "height": 64,
+      "channelTolerance": 2,
+      "width": 64,
+      "maximumChannelError": 0,
+      "mismatchedPixels": 0,
+      "checkedPixels": 4096,
+      "name": "nearest-texture"
+    },
+    {
+      "passed": true,
+      "height": 64,
+      "channelTolerance": 2,
+      "width": 64,
+      "maximumChannelError": 0,
+      "mismatchedPixels": 0,
+      "checkedPixels": 4096,
+      "name": "depth-occlusion"
+    },
+    {
+      "passed": true,
+      "height": 64,
+      "channelTolerance": 2,
+      "width": 64,
+      "maximumChannelError": 0,
+      "mismatchedPixels": 0,
+      "checkedPixels": 4096,
+      "name": "source-alpha-blending"
+    },
+    {
+      "passed": true,
+      "height": 64,
+      "channelTolerance": 2,
+      "width": 64,
+      "maximumChannelError": 0,
+      "mismatchedPixels": 0,
+      "checkedPixels": 4096,
+      "name": "scissor"
+    },
+    {
+      "passed": true,
+      "height": 64,
+      "channelTolerance": 2,
+      "width": 64,
+      "maximumChannelError": 0,
+      "mismatchedPixels": 0,
+      "checkedPixels": 4096,
+      "name": "viewport"
+    },
+    {
+      "passed": true,
+      "height": 64,
+      "channelTolerance": 2,
+      "width": 64,
+      "maximumChannelError": 0,
+      "mismatchedPixels": 0,
+      "checkedPixels": 4096,
+      "name": "linear-to-srgb"
+    },
+    {
+      "passed": true,
+      "height": 128,
+      "channelTolerance": 2,
+      "width": 256,
+      "maximumChannelError": 0,
+      "mismatchedPixels": 0,
+      "checkedPixels": 32768,
+      "name": "clear"
+    },
+    {
+      "passed": true,
+      "height": 128,
+      "channelTolerance": 2,
+      "width": 256,
+      "maximumChannelError": 0,
+      "mismatchedPixels": 0,
+      "checkedPixels": 32768,
+      "name": "indexed-geometry"
+    },
+    {
+      "passed": true,
+      "height": 128,
+      "channelTolerance": 2,
+      "width": 256,
+      "maximumChannelError": 0,
+      "mismatchedPixels": 0,
+      "checkedPixels": 32768,
+      "name": "nearest-texture"
+    },
+    {
+      "passed": true,
+      "height": 128,
+      "channelTolerance": 2,
+      "width": 256,
+      "maximumChannelError": 0,
+      "mismatchedPixels": 0,
+      "checkedPixels": 32768,
+      "name": "depth-occlusion"
+    },
+    {
+      "passed": true,
+      "height": 128,
+      "channelTolerance": 2,
+      "width": 256,
+      "maximumChannelError": 0,
+      "mismatchedPixels": 0,
+      "checkedPixels": 32768,
+      "name": "source-alpha-blending"
+    },
+    {
+      "passed": true,
+      "height": 128,
+      "channelTolerance": 2,
+      "width": 256,
+      "maximumChannelError": 0,
+      "mismatchedPixels": 0,
+      "checkedPixels": 32768,
+      "name": "scissor"
+    },
+    {
+      "passed": true,
+      "height": 128,
+      "channelTolerance": 2,
+      "width": 256,
+      "maximumChannelError": 0,
+      "mismatchedPixels": 0,
+      "checkedPixels": 32768,
+      "name": "viewport"
+    },
+    {
+      "passed": true,
+      "height": 128,
+      "channelTolerance": 2,
+      "width": 256,
+      "maximumChannelError": 0,
+      "mismatchedPixels": 0,
+      "checkedPixels": 32768,
+      "name": "linear-to-srgb"
+    },
+    {
+      "passed": true,
+      "height": 256,
+      "channelTolerance": 2,
+      "width": 128,
+      "maximumChannelError": 0,
+      "mismatchedPixels": 0,
+      "checkedPixels": 32768,
+      "name": "clear"
+    },
+    {
+      "passed": true,
+      "height": 256,
+      "channelTolerance": 2,
+      "width": 128,
+      "maximumChannelError": 0,
+      "mismatchedPixels": 0,
+      "checkedPixels": 32768,
+      "name": "indexed-geometry"
+    },
+    {
+      "passed": true,
+      "height": 256,
+      "channelTolerance": 2,
+      "width": 128,
+      "maximumChannelError": 0,
+      "mismatchedPixels": 0,
+      "checkedPixels": 32768,
+      "name": "nearest-texture"
+    },
+    {
+      "passed": true,
+      "height": 256,
+      "channelTolerance": 2,
+      "width": 128,
+      "maximumChannelError": 0,
+      "mismatchedPixels": 0,
+      "checkedPixels": 32768,
+      "name": "depth-occlusion"
+    },
+    {
+      "passed": true,
+      "height": 256,
+      "channelTolerance": 2,
+      "width": 128,
+      "maximumChannelError": 0,
+      "mismatchedPixels": 0,
+      "checkedPixels": 32768,
+      "name": "source-alpha-blending"
+    },
+    {
+      "passed": true,
+      "height": 256,
+      "channelTolerance": 2,
+      "width": 128,
+      "maximumChannelError": 0,
+      "mismatchedPixels": 0,
+      "checkedPixels": 32768,
+      "name": "scissor"
+    },
+    {
+      "passed": true,
+      "height": 256,
+      "channelTolerance": 2,
+      "width": 128,
+      "maximumChannelError": 0,
+      "mismatchedPixels": 0,
+      "checkedPixels": 32768,
+      "name": "viewport"
+    },
+    {
+      "passed": true,
+      "height": 256,
+      "channelTolerance": 2,
+      "width": 128,
+      "maximumChannelError": 0,
+      "mismatchedPixels": 0,
+      "checkedPixels": 32768,
+      "name": "linear-to-srgb"
+    },
+    {
+      "passed": true,
+      "height": 124,
+      "channelTolerance": 2,
+      "width": 60,
+      "maximumChannelError": 0,
+      "mismatchedPixels": 0,
+      "checkedPixels": 7440,
+      "name": "clear"
+    },
+    {
+      "passed": true,
+      "height": 124,
+      "channelTolerance": 2,
+      "width": 60,
+      "maximumChannelError": 0,
+      "mismatchedPixels": 0,
+      "checkedPixels": 7440,
+      "name": "indexed-geometry"
+    },
+    {
+      "passed": true,
+      "height": 124,
+      "channelTolerance": 2,
+      "width": 60,
+      "maximumChannelError": 0,
+      "mismatchedPixels": 0,
+      "checkedPixels": 7440,
+      "name": "nearest-texture"
+    },
+    {
+      "passed": true,
+      "height": 124,
+      "channelTolerance": 2,
+      "width": 60,
+      "maximumChannelError": 0,
+      "mismatchedPixels": 0,
+      "checkedPixels": 7440,
+      "name": "depth-occlusion"
+    },
+    {
+      "passed": true,
+      "height": 124,
+      "channelTolerance": 2,
+      "width": 60,
+      "maximumChannelError": 0,
+      "mismatchedPixels": 0,
+      "checkedPixels": 7440,
+      "name": "source-alpha-blending"
+    },
+    {
+      "passed": true,
+      "height": 124,
+      "channelTolerance": 2,
+      "width": 60,
+      "maximumChannelError": 0,
+      "mismatchedPixels": 0,
+      "checkedPixels": 7440,
+      "name": "scissor"
+    },
+    {
+      "passed": true,
+      "height": 124,
+      "channelTolerance": 2,
+      "width": 60,
+      "maximumChannelError": 0,
+      "mismatchedPixels": 0,
+      "checkedPixels": 7440,
+      "name": "viewport"
+    },
+    {
+      "passed": true,
+      "height": 124,
+      "channelTolerance": 2,
+      "width": 60,
+      "maximumChannelError": 0,
+      "mismatchedPixels": 0,
+      "checkedPixels": 7440,
+      "name": "linear-to-srgb"
+    }
+  ],
+  "passed": true,
+  "simulator": 1,
+  "limitation": "This verifies the native host diagnostic pipeline, not Sunshine GX rendering or gameplay.",
+  "scope": "host-metal-only",
+  "verificationID": "365a22512ecb4555a9d75577d6966367",
+  "onscreen": {
+    "completedFrames": 3,
+    "errors": [],
+    "drawableHeight": 320,
+    "submittedFrames": 3,
+    "drawableWidth": 1588,
+    "errorCount": 0
+  },
+  "appearance": "dark",
+  "viewSize": {
+    "width": 834,
+    "height": 1210
+  }
+}

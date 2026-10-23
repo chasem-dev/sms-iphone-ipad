@@ -1,0 +1,33 @@
+{
+  "verificationID": "966b55fbb2114fca916758214a86c5e3",
+  "scope": "host-metal-only",
+  "passed": true,
+  "background": {
+    "onscreen": {
+      "completedFrames": 20,
+      "errors": [],
+      "drawableHeight": 320,
+      "submittedFrames": 20,
+      "drawableWidth": 1588,
+      "errorCount": 0
+    },
+    "verificationID": "966b55fbb2114fca916758214a86c5e3",
+    "event": "background",
+    "processID": 40956,
+    "paused": true
+  },
+  "foreground": {
+    "onscreen": {
+      "completedFrames": 36,
+      "errors": [],
+      "drawableHeight": 320,
+      "submittedFrames": 36,
+      "drawableWidth": 1588,
+      "errorCount": 0
+    },
+    "verificationID": "966b55fbb2114fca916758214a86c5e3",
+    "event": "foreground-rendering",
+    "processID": 40956,
+    "paused": false
+  }
+}

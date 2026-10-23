@@ -1,0 +1,8 @@
+{
+  "repository": "https://github.com/chasem-dev/sms-pc-port.git",
+  "commit": "ef70f022fcba0cbbadc83ed24e375c379874c768",
+  "submodules": {
+    "decomp": "967436b8c623834d38a57d34923775f45eca8861",
+    "sdk": "d3167625f66f589f10ebfe7134f4561d4893d52c"
+  }
+}

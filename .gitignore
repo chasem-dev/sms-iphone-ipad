@@ -1,0 +1,12 @@
+/build/
+/.cache/
+/rom/
+*.ipa
+*.xcarchive
+*.mobileprovision
+*.p12
+*.p8
+.DS_Store
+__pycache__/
+*.pyc
+xcuserdata/

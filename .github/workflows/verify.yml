@@ -1,0 +1,36 @@
+name: Verify iOS bring-up
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Test portable tooling
+        run: python3 -m unittest discover -s tests -p 'test_*.py' -v
+      - name: Test disc header validation
+        run: |
+          cmake -S . -B build/host-tests -DBUILD_TESTING=ON
+          cmake --build build/host-tests
+          ctest --test-dir build/host-tests --output-on-failure
+      - name: Build simulator host and offline Metal shaders
+        run: python3 tools/build.py simulator
+      - name: Build unsigned device host
+        run: python3 tools/build.py device
+      - name: Package host-only IPA
+        run: python3 tools/package_ipa.py build/device/Release-iphoneos/Sunshine.app --output build/Sunshine-unsigned.ipa
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: Sunshine-host-only-unsigned
+          path: build/Sunshine-unsigned.ipa
+          if-no-files-found: error
