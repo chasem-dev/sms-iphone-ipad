@@ -28,6 +28,8 @@ Keep any shader compilation within supported graphics APIs; the game code itself
 
 ## Bring-up order
 
+Simulator progress: the isolated engine target now builds and boots a real airstrip stage through SDL2/static MoltenVK. The overlay separates the macOS LLVM pass from iOS compilation, namespaces volk dispatch globals, omits unavailable desktop runtime APIs, scalarizes simulator sampler arrays, and rebases indexed draws for the simulator's Metal feature set. The game entry runs on a low-window stack and installs UIKit controls. See `GAMEPLAY.md` and `VALIDATION.md`; the hardware and distribution gates below still apply.
+
 1. Run the memory probe on real iPhone and iPad hardware under ordinary development signing.
    The PC engine uses `PORT_GAME_LO = 0x100000000`, `PORT_GAME_HI = 0x10000000000`, and a 64 MiB MEM1 mapping at `0x10080000000`.
    `src/port_include/dolphin/types.h`, `tools/gameptr/GamePtrPass.cpp`, and `platform/port_runtime.cpp` must agree.

@@ -1,0 +1,15 @@
+diff --git a/platform/gx/src/gx_platform.cpp b/platform/gx/src/gx_platform.cpp
+--- a/platform/gx/src/gx_platform.cpp
++++ b/platform/gx/src/gx_platform.cpp
+@@ -539,6 +539,10 @@
+     s_window = SDL_CreateWindow("Super Mario Sunshine", layout.x, layout.y, layout.w, layout.h,
+                                 (vulkan ? SDL_WINDOW_VULKAN : SDL_WINDOW_OPENGL) | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI |
+-                                SDL_WINDOW_HIDDEN);
++                                SDL_WINDOW_HIDDEN
++#ifdef SMS_IOS
++                                | SDL_WINDOW_FULLSCREEN_DESKTOP
++#endif
++                                );
+     if (!s_window) {
+         logmsg("SDL_CreateWindow failed (%s): %s", s_videoDriver, SDL_GetError());
+         snprintf(s_windowError, sizeof s_windowError, "%s", SDL_GetError());

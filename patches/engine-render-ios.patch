@@ -1,0 +1,245 @@
+diff --git a/platform/gx/src/vk/glvk_impl.h b/platform/gx/src/vk/glvk_impl.h
+index a8dbedb..ae01481 100644
+--- a/platform/gx/src/vk/glvk_impl.h
++++ b/platform/gx/src/vk/glvk_impl.h
+@@ -28,6 +28,10 @@
+ #include <unordered_map>
+ #include <vector>
+ 
++#ifdef SMS_IOS
++#include <TargetConditionals.h>
++#endif
++
+ namespace gx {
+ void logmsg(const char* fmt, ...);
+ }
+@@ -38,6 +42,12 @@ using gx::logmsg;
+ 
+ enum { kMaxUnits = 16, kMaxAttribs = 16, kMaxUboBindings = 8 };
+ 
++#if defined(SMS_IOS) && TARGET_OS_SIMULATOR
++constexpr bool kScalarSamplerArray = true;
++#else
++constexpr bool kScalarSamplerArray = false;
++#endif
++
+ // The descriptor set every program uses (push descriptors), whatever its
+ // GLSL declared: glslang's bindings are patched to these in the SPIR-V.
+ enum {
+@@ -45,7 +55,7 @@ enum {
+     B_UBO0 = 1,         // named uniform blocks, in order of appearance
+     B_UBO_COUNT = 2,
+     B_SAMPLER_ARRAY = 3,  // one sampler array, up to 8 elements
+-    B_SAMPLERS = 4,       // scalar samplers, in order of appearance
++    B_SAMPLERS = kScalarSamplerArray ? 11 : 4,
+     B_SAMPLER_COUNT = 8,
+     B_COUNT = B_SAMPLERS + B_SAMPLER_COUNT,
+     kSamplerArrayMax = 8,
+diff --git a/platform/gx/src/vk/glvk_device.cpp b/platform/gx/src/vk/glvk_device.cpp
+index 8d73d58..c5196fd 100644
+--- a/platform/gx/src/vk/glvk_device.cpp
++++ b/platform/gx/src/vk/glvk_device.cpp
+@@ -1112,7 +1112,12 @@ bool init(const InitInfo& info) {
+     stci.semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE;
+     VkSemaphoreCreateInfo sci{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
+     sci.pNext = &stci;
+-    vkCreateSemaphore(D.dev, &sci, nullptr, &D.timeline);
++    r = vkCreateSemaphore(D.dev, &sci, nullptr, &D.timeline);
++    if (r != VK_SUCCESS) {
++        logmsg("Vulkan: vkCreateSemaphore (timeline) failed (%d)", int(r));
++        shutdown();
++        return false;
++    }
+ 
+     chooseDepthFormat();
+     if (emulate) {
+@@ -1137,14 +1142,19 @@ bool init(const InitInfo& info) {
+             binds[b].descriptorCount = 1;
+         } else {
+             binds[b].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+-            binds[b].descriptorCount = b == B_SAMPLER_ARRAY ? kSamplerArrayMax : 1;
++            binds[b].descriptorCount = b == B_SAMPLER_ARRAY && !kScalarSamplerArray ? kSamplerArrayMax : 1;
+         }
+     }
+     VkDescriptorSetLayoutCreateInfo dsl{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
+     dsl.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR;
+     dsl.bindingCount = B_COUNT;
+     dsl.pBindings = binds;
+-    vkCreateDescriptorSetLayout(D.dev, &dsl, nullptr, &D.setLayout);
++    r = vkCreateDescriptorSetLayout(D.dev, &dsl, nullptr, &D.setLayout);
++    if (r != VK_SUCCESS) {
++        logmsg("Vulkan: vkCreateDescriptorSetLayout failed (%d)", int(r));
++        shutdown();
++        return false;
++    }
+     // bytes 0-15: the point size (vertex and geometry stages); 16-47: the
+     // LOD bias of each of u_tex's eight samplers, without sampler LOD bias
+     D.pushStages = stages & ~VkShaderStageFlags(VK_SHADER_STAGE_FRAGMENT_BIT);
+@@ -1154,7 +1164,12 @@ bool init(const InitInfo& info) {
+     plci.pSetLayouts = &D.setLayout;
+     plci.pushConstantRangeCount = 2;
+     plci.pPushConstantRanges = pcr;
+-    vkCreatePipelineLayout(D.dev, &plci, nullptr, &D.pipeLayout);
++    r = vkCreatePipelineLayout(D.dev, &plci, nullptr, &D.pipeLayout);
++    if (r != VK_SUCCESS) {
++        logmsg("Vulkan: vkCreatePipelineLayout failed (%d)", int(r));
++        shutdown();
++        return false;
++    }
+ 
+ 
+     g_staging.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+@@ -1169,7 +1184,14 @@ bool init(const InitInfo& info) {
+     if (const char* e = getenv("SMS_VK_FRAMES")) s_sc.frames = uint32_t(std::max(1, std::min(int(kFramesMax), atoi(e))));
+     if (s_sc.surface) {
+         VkSemaphoreCreateInfo bsci{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
+-        for (VkSemaphore& s : s_sc.acquire) vkCreateSemaphore(D.dev, &bsci, nullptr, &s);
++        for (VkSemaphore& s : s_sc.acquire) {
++            r = vkCreateSemaphore(D.dev, &bsci, nullptr, &s);
++            if (r != VK_SUCCESS) {
++                logmsg("Vulkan: vkCreateSemaphore (acquire) failed (%d)", int(r));
++                shutdown();
++                return false;
++            }
++        }
+ #ifdef SMS_GX_HAVE_SDL2
+         int w = 0, h = 0;
+         SDL_Vulkan_GetDrawableSize(static_cast<SDL_Window*>(info.sdlWindow), &w, &h);
+diff --git a/platform/gx/src/vk/glvk_shader.cpp b/platform/gx/src/vk/glvk_shader.cpp
+index 081538d..14ac6fc 100644
+--- a/platform/gx/src/vk/glvk_shader.cpp
++++ b/platform/gx/src/vk/glvk_shader.cpp
+@@ -84,7 +84,7 @@ std::string biasTextureCalls(const std::string& src) {
+     return s;
+ }
+ 
+-std::string prepare(const std::string& src, EShLanguage stage, bool hasGeometry, bool lineFallback) {
++std::string prepareNative(const std::string& src, EShLanguage stage, bool hasGeometry, bool lineFallback) {
+     static const char* kPush = "layout(push_constant) uniform GlvkVertexPC { vec4 glvk_pc; };\n";
+     if (stage == EShLangVertex) {
+         std::string body = src;
+@@ -120,6 +120,25 @@ std::string prepare(const std::string& src, EShLanguage stage, bool hasGeometry,
+     return src;
+ }
+ 
++std::string prepare(const std::string& src, EShLanguage stage, bool hasGeometry, bool lineFallback) {
++    std::string source = prepareNative(src, stage, hasGeometry, lineFallback);
++    if (!kScalarSamplerArray) return source;
++    const std::string declaration = "uniform sampler2D u_tex[8];";
++    const size_t declarationAt = source.find(declaration);
++    if (declarationAt == std::string::npos) return source;
++    std::string scalars;
++    for (int element = 0; element < kSamplerArrayMax; element++)
++        scalars += "uniform sampler2D glvk_tex_" + std::to_string(element) + ";\n";
++    source.replace(declarationAt, declaration.size(), scalars);
++    for (int element = 0; element < kSamplerArrayMax; element++) {
++        const std::string indexed = "u_tex[" + std::to_string(element) + "]";
++        const std::string scalar = "glvk_tex_" + std::to_string(element);
++        for (size_t at = source.find(indexed); at != std::string::npos; at = source.find(indexed, at + scalar.size()))
++            source.replace(at, indexed.size(), scalar);
++    }
++    return source;
++}
++
+ bool isSamplerType(int t) {
+     return t == GL_SAMPLER_2D || t == GL_SAMPLER_2D_SHADOW || t == GL_SAMPLER_3D || t == GL_SAMPLER_CUBE ||
+            t == GL_INT_SAMPLER_2D || t == GL_UNSIGNED_INT_SAMPLER_2D || t == GL_SAMPLER_2D_ARRAY;
+@@ -277,7 +296,11 @@ VkShaderModule makeModule(const std::vector<uint32_t>& spv) {
+     ci.codeSize = spv.size() * 4;
+     ci.pCode = spv.data();
+     VkShaderModule m = VK_NULL_HANDLE;
+-    vkCreateShaderModule(D.dev, &ci, nullptr, &m);
++    const VkResult result = vkCreateShaderModule(D.dev, &ci, nullptr, &m);
++    if (result != VK_SUCCESS) {
++        logmsg("Vulkan: vkCreateShaderModule failed (%d)", int(result));
++        return VK_NULL_HANDLE;
++    }
+     return m;
+ }
+ 
+@@ -421,12 +444,35 @@ void compileLink(const LinkInputs& in, LinkOutput& o) {
+         for (int s = 0; ok && s < 3; s++) {
+             for (const SpvInfo::Sampler& smp : infos[s].samplers) {
+                 if (plan.samplers.count(smp.name)) continue;
++                if (kScalarSamplerArray && smp.name.size() == 10 && smp.name.compare(0, 9, "glvk_tex_") == 0 &&
++                    smp.name[9] >= '0' && smp.name[9] < '0' + kSamplerArrayMax) {
++                    const int element = smp.name[9] - '0';
++                    plan.samplers[smp.name] = B_SAMPLER_ARRAY + element;
++                    o.samplerMask |= 1u << (B_SAMPLER_ARRAY + element);
++                    if (arrayName.empty()) {
++                        arrayName = "u_tex";
++                        UniformInfo aggregate;
++                        aggregate.name = arrayName;
++                        aggregate.block = -2;
++                        aggregate.glType = GL_SAMPLER_2D;
++                        aggregate.arraySize = kSamplerArrayMax;
++                        aggregate.binding = B_SAMPLER_ARRAY;
++                        aggregate.units.assign(kSamplerArrayMax, 0);
++                        o.uniforms.push_back(aggregate);
++                    }
++                    continue;
++                }
+                 UniformInfo u;
+                 u.name = smp.name;
+                 u.block = -2;
+                 u.glType = GL_SAMPLER_2D;
+                 u.arraySize = int(std::max(1u, smp.count));
+                 if (smp.array) {
++                    if (kScalarSamplerArray) {
++                        o.log += "glvk: unsupported sampler array on iOS simulator: " + smp.name + "\n";
++                        ok = false;
++                        break;
++                    }
+                     if (!arrayName.empty() || smp.count > kSamplerArrayMax) {
+                         o.log += "glvk: more than one sampler array, or one of more than 8\n";
+                         ok = false;
+@@ -753,7 +799,7 @@ bool programBinary(Program* p, std::vector<uint8_t>& out) {
+     out.assign(kBinaryMagic, kBinaryMagic + 8);
+     putU32(out, kBinaryVersion);
+     putU32(out, (p->hasGeometry ? 1u : 0u) | (depthFixInShader() ? 2u : 0u) | (D.noLodBias ? 4u : 0u) |
+-                    (D.features.geometryShader ? 0u : 8u));
++                    (D.features.geometryShader ? 0u : 8u) | (kScalarSamplerArray ? 16u : 0u));
+     for (int s = 0; s < 3; s++) {
+         putU32(out, uint32_t(p->spirv[s].size()));
+         const uint8_t* b = reinterpret_cast<const uint8_t*>(p->spirv[s].data());
+@@ -791,7 +837,7 @@ bool loadProgramBinary(Program* p, const void* data, size_t len) {
+     if (r.u32() != kBinaryVersion) return false;
+     const uint32_t flags = r.u32();
+     if (((flags & 2) != 0) != depthFixInShader() || ((flags & 4) != 0) != D.noLodBias ||
+-        ((flags & 8) != 0) != !D.features.geometryShader)
++        ((flags & 8) != 0) != !D.features.geometryShader || ((flags & 16) != 0) != kScalarSamplerArray)
+         return false;
+     p->hasGeometry = (flags & 1) != 0;
+     if (p->hasGeometry && !D.features.geometryShader) return false;
+diff --git a/platform/gx/src/vk/glvk_draw.cpp b/platform/gx/src/vk/glvk_draw.cpp
+index e32adb4..43538c7 100644
+--- a/platform/gx/src/vk/glvk_draw.cpp
++++ b/platform/gx/src/vk/glvk_draw.cpp
+@@ -664,7 +664,11 @@ void gatherDescriptors(Program* p, DescSet& ds) {
+                 ds.bias[e] = so ? so->lodBias : t ? t->lodBias : 0.0f;
+             }
+         }
+-        if (u.binding == B_SAMPLER_ARRAY) ds.arrayCount = uint32_t(u.arraySize);
++        if (u.binding == B_SAMPLER_ARRAY) {
++            ds.arrayCount = uint32_t(u.arraySize);
++            if (kScalarSamplerArray)
++                for (int element = 0; element < u.arraySize; element++) ds.mask |= 1u << (B_SAMPLER_ARRAY + element);
++        }
+         ds.mask |= 1u << u.binding;
+     }
+ }
+@@ -692,10 +696,11 @@ void pushDescriptors(VkCommandBuffer cb, const DescSet& ds) {
+             w[n].descriptorCount = 1;
+             w[n].pBufferInfo = &ds.ubo[b];
+             s_cc.ubo[b] = ds.ubo[b];
+-        } else if (b == B_SAMPLER_ARRAY) {
++        } else if (b < B_SAMPLERS) {
++            const uint32_t element = kScalarSamplerArray ? b - B_SAMPLER_ARRAY : 0;
+             w[n].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+-            w[n].descriptorCount = std::max(1u, ds.arrayCount);
+-            w[n].pImageInfo = ds.imgs;
++            w[n].descriptorCount = kScalarSamplerArray ? 1 : std::max(1u, ds.arrayCount);
++            w[n].pImageInfo = &ds.imgs[element];
+             memcpy(s_cc.imgs, ds.imgs, sizeof(VkDescriptorImageInfo) * kSamplerArrayMax);
+         } else {
+             const int slot = kSamplerArrayMax + int(b - B_SAMPLERS);

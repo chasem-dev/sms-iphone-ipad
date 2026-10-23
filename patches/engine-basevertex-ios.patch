@@ -1,0 +1,70 @@
+diff --git a/platform/gx/src/vk/glvk_draw.cpp b/platform/gx/src/vk/glvk_draw.cpp
+index 43538c7..a225f06 100644
+--- a/platform/gx/src/vk/glvk_draw.cpp
++++ b/platform/gx/src/vk/glvk_draw.cpp
+@@ -787,8 +787,53 @@ bool bindIndices(VkCommandBuffer cb, GLenum type) {
+     return true;
+ }
+ 
++#if defined(SMS_IOS) && TARGET_OS_SIMULATOR
++bool rebaseIndices(const uint8_t* source, GLsizei count, GLenum type, GLint base, uint32_t* destination) {
++    for (GLsizei element = 0; element < count; element++) {
++        uint32_t index = 0;
++        if (type == GL_UNSIGNED_SHORT) {
++            uint16_t value;
++            memcpy(&value, source + size_t(element) * sizeof(value), sizeof(value));
++            index = value;
++        } else {
++            memcpy(&index, source + size_t(element) * sizeof(index), sizeof(index));
++        }
++        const int64_t adjusted = int64_t(index) + int64_t(base);
++        if (adjusted < 0 || adjusted > int64_t(UINT32_MAX)) return false;
++        destination[element] = uint32_t(adjusted);
++    }
++    return true;
++}
++#endif
++
+ void drawElements(GLenum mode, GLsizei count, GLenum type, const void* indices, GLint base) {
+     if (count <= 0) return;
++#if defined(SMS_IOS) && TARGET_OS_SIMULATOR
++    if (base != 0) {
++        VertexArray* va = g_vertexArrays.get(S.vao);
++        Buffer* buffer = va ? g_buffers.get(va->elementBuffer) : nullptr;
++        if (!buffer || !buffer->buf || !buffer->map) return;
++        if (type != GL_UNSIGNED_SHORT && type != GL_UNSIGNED_INT) return;
++        const VkDeviceSize offset = VkDeviceSize(reinterpret_cast<uintptr_t>(indices));
++        const VkDeviceSize indexSize = type == GL_UNSIGNED_SHORT ? 2 : 4;
++        const VkDeviceSize bytes = VkDeviceSize(count) * indexSize;
++        if (offset % indexSize || offset > buffer->size || bytes > buffer->size - offset) return;
++        waitSerial(buffer->lastWrite);
++        if (!buffer->coherent && vmaInvalidateAllocation(D.vma, buffer->alloc, offset, bytes) != VK_SUCCESS) return;
++        RingAlloc rebased = g_dynamic.alloc(VkDeviceSize(count) * sizeof(uint32_t), alignof(uint32_t));
++        if (!rebaseIndices(buffer->map + offset, count, type, base, reinterpret_cast<uint32_t*>(rebased.ptr))) {
++            logmsg("Vulkan: base vertex produces an out-of-range index");
++            return;
++        }
++        VkCommandBuffer cb;
++        if (!prepareDraw(mode, &cb)) return;
++        vkCmdBindIndexBuffer(cb, rebased.buffer, rebased.offset, VK_INDEX_TYPE_UINT32);
++        s_cc.ib = VK_NULL_HANDLE;
++        vkCmdDrawIndexed(cb, uint32_t(count), 1, 0, 0, 0);
++        drawRecorded();
++        return;
++    }
++#endif
+     VkCommandBuffer cb;
+     if (!prepareDraw(mode, &cb) || !bindIndices(cb, type)) return;
+     const uint32_t isz = type == GL_UNSIGNED_SHORT ? 2 : 4;
+@@ -1372,6 +1417,11 @@ GLAPI_FN(void, x_glDrawElementsBaseVertex)(GLenum mode, GLsizei count, GLenum ty
+ GLAPI_FN(void, x_glMultiDrawElementsBaseVertex)(GLenum mode, const GLsizei* count, GLenum type, const void* const* indices,
+                                                GLsizei drawcount, const GLint* base) {
+     if (drawcount <= 0) return;
++#if defined(SMS_IOS) && TARGET_OS_SIMULATOR
++    for (GLsizei draw = 0; draw < drawcount; draw++)
++        drawElements(mode, count[draw], type, indices[draw], base[draw]);
++    return;
++#endif
+     VkCommandBuffer cb;
+     if (!prepareDraw(mode, &cb) || !bindIndices(cb, type)) return;
+     const uint32_t isz = type == GL_UNSIGNED_SHORT ? 2 : 4;

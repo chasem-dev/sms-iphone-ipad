@@ -6,19 +6,24 @@ No Nintendo game images, artwork, keys, or saves are included.
 
 ## Current status
 
-**Early bring-up, not a playable Sunshine build.**
-The UIKit/Metal host builds independently of the game and provides:
+**Experimental simulator game build; not a device-ready release.**
+The separate native game target now boots Sunshine through its real title/file-select flow into the airstrip, renders game geometry, characters, textures and HUD, and accepts scripted movement through the engine's SDL input path.
+See [native game bring-up](docs/GAMEPLAY.md) for the build, local-disc installation, and gameplay/control verification commands.
+Physical iPhone/iPad gameplay, signing, saving, audio quality, and full-game graphics coverage remain unverified.
+
+The original UIKit/Metal diagnostic host still builds independently and provides:
 
 - iPhone and iPad layouts, rotation, and foreground/background rendering control.
 - An indexed, textured Metal diagnostic using bundled, offline-compiled shaders, not a gameplay renderer.
 - Full-image GPU readback checks for clear, geometry, texture orientation, depth occlusion, alpha blending, scissor, viewport, and linear-to-sRGB output at four target sizes.
 - Files-based import of uncompressed GMSE01 revision 0 ISO/GCM images into the app's Documents/Game directory.
 - Header/bounds checks, background copying, and replacement that preserves an existing image if the new import fails before installation.
-- Connected-controller detection; controller mapping and touch controls are not implemented yet.
+- Connected-controller detection in the diagnostic host; the separate game target has UIKit touch controls and SDL controller support.
 - Non-destructive tests of the PC ARM64 engine's memory windows, with a JSON report in Documents.
 - Unsigned device IPA packaging and optional development signing.
 
-The engine itself is **not linked yet**.
+The experimental `SunshineGame.app` links the real engine, SDL2, and static MoltenVK; it is distinct from the diagnostic `Sunshine.app` and the host-only IPA workflow below.
+It currently requires the runner to install a local disc into its private container; the diagnostic host's Files importer is not yet connected to this game app.
 `engine.lock.json` pins the existing PC engine and its submodules; `tools/prepare_engine.py` verifies or fetches it without changing the desktop checkout.
 See [the integration plan](docs/PORTING.md) for work to reuse from the PC, Android, and Switch targets.
 

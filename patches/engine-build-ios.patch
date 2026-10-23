@@ -1,0 +1,109 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index ef18a35..f72dde9 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -1,5 +1,8 @@
+ cmake_minimum_required(VERSION 3.20)
+ project(sms_port C CXX)
++if(SMS_IOS_OVERLAY)
++  include("${SMS_IOS_OVERLAY}")
++endif()
+ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+ 
+ set(SMS_DECOMP ${CMAKE_CURRENT_SOURCE_DIR}/decomp)
+@@ -44,8 +47,10 @@ if(SMS_ARCH STREQUAL "auto")
+     message(WARNING "-m32 does not link here (install gcc-multilib g++-multilib); building -m64")
+   endif()
+ endif()
+-add_compile_options(-m${SMS_ARCH})
+-add_link_options(-m${SMS_ARCH})
++if(NOT SMS_IOS)
++  add_compile_options(-m${SMS_ARCH})
++  add_link_options(-m${SMS_ARCH})
++endif()
+ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+   # RUNPATH, not RPATH: a toolchain's library directory (the launcher's conda
+   # tools add one to every link) then finds only the game's own libraries.
+@@ -121,7 +126,7 @@ endif()
+ # Non-PIE: the game's code and data sit at the same addresses every run, which
+ # 64-bit builds need for pointers in u32 slots and save states need everywhere
+ # (a state holds pointers to the game's vtables and globals).
+-if(SMS_ARCH STREQUAL "64" OR CMAKE_SYSTEM_NAME STREQUAL "Linux")
++if(NOT SMS_IOS AND (SMS_ARCH STREQUAL "64" OR CMAKE_SYSTEM_NAME STREQUAL "Linux"))
+   list(APPEND SMS_GAME_FLAGS -fno-pie)
+ endif()
+ # Clang rejects the game's pointer-to-int truncations ((int)ptr, (u32)ptr) as
+@@ -166,10 +171,18 @@ if(SMS_MAC_ARM64)
+   set(SMS_GAMEPTR_SRC ${CMAKE_CURRENT_SOURCE_DIR}/tools/gameptr/GamePtrPass.cpp)
+   set(SMS_GAMEPTR_PLUGIN ${CMAKE_BINARY_DIR}/gameptr/libSmsGamePtr.dylib)
+   file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/gameptr)
+-  execute_process(
+-    COMMAND ${CMAKE_CXX_COMPILER} -shared -fPIC -O2 ${_llvm_cxxflags} -undefined dynamic_lookup
+-            -o ${SMS_GAMEPTR_PLUGIN} ${SMS_GAMEPTR_SRC}
+-    RESULT_VARIABLE _gameptr_rc)
++  if(SMS_IOS)
++    set(SMS_GAMEPTR_PLUGIN "${SMS_IOS_GAMEPTR_PLUGIN}")
++    if(NOT EXISTS "${SMS_GAMEPTR_PLUGIN}")
++      message(FATAL_ERROR "Build the host gameptr plugin before cross-compiling")
++    endif()
++    set(_gameptr_rc 0)
++  else()
++    execute_process(
++      COMMAND ${CMAKE_CXX_COMPILER} -shared -fPIC -O2 ${_llvm_cxxflags} -undefined dynamic_lookup
++              -o ${SMS_GAMEPTR_PLUGIN} ${SMS_GAMEPTR_SRC}
++      RESULT_VARIABLE _gameptr_rc)
++  endif()
+   if(NOT _gameptr_rc EQUAL 0)
+     message(FATAL_ERROR "building tools/gameptr's pass plugin failed")
+   endif()
+@@ -435,7 +448,7 @@ elseif(APPLE)
+ else()
+   target_link_options(sms PRIVATE -Wl,--defsym=lbl_80004600=0x80004600)
+ endif()
+-if(SMS_ARCH STREQUAL "64" OR CMAKE_SYSTEM_NAME STREQUAL "Linux")
++if(NOT SMS_IOS AND (SMS_ARCH STREQUAL "64" OR CMAKE_SYSTEM_NAME STREQUAL "Linux"))
+   target_compile_options(sms PRIVATE -fno-pie)
+   if(NOT APPLE AND NOT WIN32)
+     target_link_options(sms PRIVATE -no-pie)
+@@ -448,8 +461,10 @@ if(SMS_MAC_ARM64)
+   # The executable loads at 0x100000000 (port_main.cpp turns address
+   # randomisation off): pad its header so no code lies in its first 64 KiB,
+   # whose truncated addresses would be below PORT_GAME_MIN.
+-  target_link_options(sms PRIVATE "LINKER:-headerpad,0x10000")
+-elseif(APPLE)
++  if(NOT SMS_IOS)
++    target_link_options(sms PRIVATE "LINKER:-headerpad,0x10000")
++  endif()
++elseif(APPLE AND NOT SMS_IOS)
+   # Shrink PAGEZERO so MAP_32BIT / low stacks work (x86_64 / Rosetta only).
+   target_link_options(sms PRIVATE "LINKER:-pagezero_size,0x1000")
+   # At the same address every run, as on Linux and Windows, so save states
+@@ -467,6 +482,7 @@ if(APPLE)
+ else()
+   target_link_options(sms PRIVATE "LINKER:-Map=${CMAKE_BINARY_DIR}/sms.map")
+ endif()
++if(NOT SMS_IOS)
+ add_custom_command(TARGET sms POST_BUILD
+   COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/savestate_ranges.py
+     --map ${CMAKE_BINARY_DIR}/sms.map --exe $<TARGET_FILE:sms>
+@@ -478,6 +494,7 @@ if(SMS_MAC_ARM64)
+   add_custom_command(TARGET sms POST_BUILD COMMAND codesign -f -s - $<TARGET_FILE:sms>
+     COMMENT "Signing sms (ad hoc)")
+ endif()
++endif()
+ find_package(Threads REQUIRED)
+ if(WIN32 AND SMS_ARCH STREQUAL "64")
+   add_executable(sms_windows_stack_test EXCLUDE_FROM_ALL
+diff --git a/platform/gx/CMakeLists.txt b/platform/gx/CMakeLists.txt
+index f4e5208..dd55162 100644
+--- a/platform/gx/CMakeLists.txt
++++ b/platform/gx/CMakeLists.txt
+@@ -75,7 +75,7 @@ set_target_properties(sms_gx PROPERTIES POSITION_INDEPENDENT_CODE ON)
+ # On macOS x86_64, prefer a universal SDL2.framework — Homebrew's bottle is
+ # often arm64-only and will not link into an x86_64 binary.
+ set(SMS_SDL2_FRAMEWORK "" CACHE PATH "Path to SDL2.framework (universal)")
+-if(APPLE)
++if(APPLE AND NOT TARGET SDL2::SDL2)
+   set(_sms_sdl2_fw "")
+   foreach(_cand
+       "${SMS_SDL2_FRAMEWORK}"

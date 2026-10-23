@@ -1,0 +1,114 @@
+diff --git a/platform/gx/src/gx_platform.cpp b/platform/gx/src/gx_platform.cpp
+--- a/platform/gx/src/gx_platform.cpp
++++ b/platform/gx/src/gx_platform.cpp
+@@ -531,8 +531,18 @@
+ #ifdef SMS_GX_HAVE_VULKAN
+     // SDL opens a Vulkan library for a Vulkan window: the one glvk will use
+     // (the bundled MoltenVK on macOS), or the system's loader
++#ifdef SMS_IOS
++    if (vulkan && SDL_Vulkan_LoadLibrary(nullptr) != 0) {
++        s_windowFailure = WF_WINDOW;
++        snprintf(s_windowError, sizeof s_windowError, "Vulkan: %s", SDL_GetError());
++        logmsg("SDL could not load statically linked MoltenVK: %s", SDL_GetError());
++        SDL_Quit();
++        return false;
++    }
++#else
+     if (vulkan && glvk::libraryPath() && SDL_Vulkan_LoadLibrary(glvk::libraryPath()) != 0)
+         logmsg("SDL could not load %s: %s", glvk::libraryPath(), SDL_GetError());
++#endif
+ #endif
+     s_window = SDL_CreateWindow("Super Mario Sunshine", layout.x, layout.y, layout.w, layout.h,
+                                 (vulkan ? SDL_WINDOW_VULKAN : SDL_WINDOW_OPENGL) | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI |
+diff --git a/platform/gx/src/vk/glvk_device.cpp b/platform/gx/src/vk/glvk_device.cpp
+--- a/platform/gx/src/vk/glvk_device.cpp
++++ b/platform/gx/src/vk/glvk_device.cpp
+@@ -17,6 +17,11 @@
+ #ifndef _WIN32
+ #include <dlfcn.h>
+ #include <unistd.h>
++#endif
++
++#ifdef SMS_IOS
++extern "C" PFN_vkVoidFunction sms_mvk_get_proc(VkInstance instance, const char* name)
++    __asm__("_vkGetInstanceProcAddr");
+ #endif
+ 
+ namespace gx {
+@@ -774,6 +779,10 @@
+ bool init(const InitInfo& info) {
+     if (s_active) return true;
+     VkResult vr = VK_ERROR_INITIALIZATION_FAILED;
++#ifdef SMS_IOS
++    volkInitializeCustom(sms_mvk_get_proc);
++    vr = VK_SUCCESS;
++#else
+ #ifndef _WIN32
+     if (const char* lib = libraryPath()) {
+         // a bundled library (MoltenVK): its entry points stand in for the loader's
+@@ -789,6 +798,7 @@
+     }
+ #endif
+     if (vr != VK_SUCCESS) vr = volkInitialize();
++#endif
+     if (vr != VK_SUCCESS) {
+         logmsg("Vulkan: no Vulkan loader found");
+         return false;
+diff --git a/platform/port_runtime.cpp b/platform/port_runtime.cpp
+--- a/platform/port_runtime.cpp
++++ b/platform/port_runtime.cpp
+@@ -38,7 +38,9 @@
+ #ifdef __APPLE__
+ #include <sys/ucontext.h>
+ #include <mach/mach.h>
++#ifndef SMS_IOS
+ #include <mach/mach_vm.h>
++#endif
+ #endif
+ #endif
+ 
+@@ -153,6 +155,10 @@
+ #ifndef _WIN32
+ static void crash_symbolise(void** bt, int n)
+ {
++#ifdef SMS_IOS
++    (void)bt;
++    (void)n;
++#else
+ 	char exe[512];
+ 	if (!realpath(port_crash_executable(), exe))
+ 		return;
+@@ -216,6 +222,7 @@
+ 	}
+ 	if (pid > 0)
+ 		waitpid(pid, nullptr, 0);
++#endif
+ }
+ 
+ // Every general register, and what the hardware said about the fault.
+@@ -552,20 +559,25 @@
+ // be mapped there.
+ static void log_mapping_at(uintptr_t at, size_t size)
+ {
++#ifdef SMS_IOS
++	port_log("[port]   mapping range 0x%llx-0x%llx cannot be inspected on iOS\n",
++		(unsigned long long)at, (unsigned long long)(at + size));
++#else
+ 	mach_vm_address_t addr = at;
+ 	for (int n = 0; n < 8; n++) {
+ 		mach_vm_size_t len = 0;
+ 		natural_t depth = 0;
+ 		vm_region_submap_info_data_64_t info;
+ 		mach_msg_type_number_t count = VM_REGION_SUBMAP_INFO_COUNT_64;
+ 		if (mach_vm_region_recurse(mach_task_self(), &addr, &len, &depth, (vm_region_recurse_info_t)&info, &count) != KERN_SUCCESS
+ 			|| addr >= at + size)
+ 			break;
+ 		port_log("[port]   taken: 0x%llx-0x%llx prot %d/%d tag %u share %u%s\n", (unsigned long long)addr,
+ 			(unsigned long long)(addr + len), info.protection, info.max_protection, info.user_tag, info.share_mode,
+ 			info.is_submap ? " (submap: shared cache)" : "");
+ 		addr += len;
+ 	}
++#endif
+ }
+ #endif
+ 
