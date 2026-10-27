@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="160" viewBox="0 0 400 160" role="img" aria-label="Super Mario Sunshine on PC: Windows, macOS &amp; Linux. Get SMS Launcher.">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFB238"/><stop offset="1" stop-color="#E8590C"/></linearGradient>
+    <radialGradient id="sun" cx="1" cy="0" r="1"><stop offset="0" stop-color="#FFE27A" stop-opacity=".75"/><stop offset=".45" stop-color="#FFE27A" stop-opacity="0"/></radialGradient>
+    <clipPath id="c"><rect width="400" height="160" rx="22"/></clipPath>
+  </defs>
+  <g clip-path="url(#c)">
+    <rect width="400" height="160" fill="url(#bg)"/>
+    <rect width="400" height="160" fill="url(#sun)"/>
+    <path d="M0 138 Q50 126 100 138 T200 138 T300 138 T400 138 V160 H0Z" fill="#fff" opacity=".14"/>
+    <path d="M0 148 Q50 138 100 148 T200 148 T300 148 T400 148 V160 H0Z" fill="#fff" opacity=".14"/>
+  </g>
+  <g transform="translate(26 38)" color="#E8590C"><rect x="4" y="8" width="72" height="48" rx="6" fill="none" stroke="#fff" stroke-width="4"/>
+    <rect x="12" y="16" width="56" height="32" rx="2" fill="#fff" opacity=".9"/>
+    <path d="M32 58 L30 68 H50 L48 58Z" fill="#fff"/><rect x="22" y="66" width="36" height="5" rx="2.5" fill="#fff"/></g>
+  <g font-family="system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" fill="#fff">
+    <text x="128" y="44" font-size="13" font-weight="700" letter-spacing="1.6" opacity=".85">ALSO ON</text>
+    <text x="128" y="76" font-size="29" font-weight="800">PC</text>
+    <text x="128" y="100" font-size="16" opacity=".92">Windows, macOS &amp; Linux</text>
+  </g>
+  <rect x="128" y="110" width="179.20000000000002" height="28" rx="14" fill="#fff"/>
+  <text x="142" y="129" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif" font-size="14" font-weight="700" fill="#E8590C">Get SMS Launcher →</text>
+</svg>

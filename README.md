@@ -1,3 +1,9 @@
+<p align="center">
+  <a href="https://github.com/chasem-dev/sms-launcher"><img src="docs/ports/pc.svg" width="32%" alt="Also on PC: Windows, macOS and Linux. Get SMS Launcher."></a>
+  <a href="https://github.com/chasem-dev/sms-android"><img src="docs/ports/android.svg" width="32%" alt="Also on Android: ARM64 phones and handhelds. Download the APK."></a>
+  <a href="https://github.com/chasem-dev/sms-switch"><img src="docs/ports/switch.svg" width="32%" alt="Also on Switch: homebrew, up to 60 fps. Download the NRO."></a>
+</p>
+
 # sms-iphone-ipad
 
 A native iPhone/iPad distribution target for the Sunshine port family.
